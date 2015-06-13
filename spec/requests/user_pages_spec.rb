@@ -55,18 +55,18 @@ describe "UserPages" do
     end
   end
 
-  describe "signup page" do
-    before { visit signup_path }
-
-    it { should have_content('Sign up') }
-    it { should have_title("#{base_title} | Sign up")}
-  end
-
   describe "profile page" do
     let (:user) {FactoryGirl.create(:user)}
     before {visit user_path(user)}
     it {should have_content(user.name)}
     it {should have_title(user.name)}
+  end
+
+  describe "signup page" do
+    before { visit signup_path }
+
+    it { should have_content('Sign up') }
+    it { should have_title("#{base_title} | Sign up")}
   end
 
   describe "signup" do
@@ -151,6 +151,61 @@ describe "UserPages" do
       it {should have_link('Sign out', href: signout_path)}
       specify {expect(user.reload.name).to eq new_name }
       specify {expect(user.reload.email).to eq new_email }
+    end
+
+    # from http://jberczel.github.io/hartl-solutions-ch9/#step9
+    describe "forbidden attributes" do
+      let(:params) do
+        { user: { admin: true, password: user.password,
+                  password_confirmation: user.password } }
+      end
+      before do
+        sign_in user, no_capybara: true
+        patch user_path(user), params
+      end
+      specify { expect(user.reload).not_to be_admin }
+    end
+  end
+
+  describe "update" do
+    describe "with admin user, deny to change admin attribute" do
+      let (:user) {FactoryGirl.create(:admin)}
+      let (:params) do
+        { user: { admin: false, password: user.password,
+                              password_confirmation: user.password}}
+      end
+      before do
+        sign_in user, no_capybara: true
+        patch user_path(user), params
+      end
+
+      specify { expect(user.reload.admin).to eq true }
+    end
+
+    describe "with non-admin user, deny to change admin attribute" do
+      let (:user) {FactoryGirl.create(:nonAdmin)}
+      let (:params) do
+        { user: { admin: true, password: user.password,
+                              password_confirmation: user.password}}
+      end
+      before do
+        sign_in user, no_capybara: true
+        patch user_path(user), params
+      end
+
+      specify { expect(user.reload.admin).to eq false }
+    end
+  end
+
+  describe "destroy" do
+    describe "with admin user may not destroy himself" do
+      let (:user) {FactoryGirl.create(:admin)}
+      before do
+        sign_in user, no_capybara: true
+        delete user_path(user)
+      end
+
+      specify { expect(user.reload).not_to raise_error(ActiveRecord::RecordNotFound)}
     end
   end
 end

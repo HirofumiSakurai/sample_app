@@ -12,13 +12,19 @@ class UsersController < ApplicationController
   end
 
   def new
+    if signed_in?
+      redirect_to root_path
+    end
     @user = User.new
   end
 
   def create
+    if signed_in?
+      redirect_to root_path
+    end
     @user = User.new(user_params)
     if @user.save
-      sign_in @user
+      sign_in @user    # save remember_token to sessoin(cookie/instant var.) and user
       flash[:success] = "Welcome to the Sample App! いらっしゃいませー"
       redirect_to @user
     else
@@ -31,6 +37,7 @@ class UsersController < ApplicationController
 
   def update
     if @user.update_attributes(user_params)
+    # if @user.update_attributes(params[:user])  # 演習 9.6.1 の赤色のために
       flash[:success] = "Profile updated"
       redirect_to @user
     else
@@ -39,16 +46,23 @@ class UsersController < ApplicationController
   end
 
   def destroy
-    User.find(params[:id]).destroy
-    flash[:success] = "User destroyed."
-    redirect_to users_url
+    user = User.find(params[:id])
+    if current_user?(user)
+      flash[:error] = "Admin user may not delete yourself."
+      redirect_to root_path
+    else
+      user.destroy
+      flash[:success] = "User destroyed."
+      redirect_to users_url
+    end
   end
 
   private
 
     def user_params
       params.require(:user).permit(:name, :email, :password,
-                                   :password_confirmation)
+                                   # :admin, # 演習 9.6.1 の赤色のために
+                                   :password_confirmation )
     end
 
     def signed_in_user
